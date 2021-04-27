@@ -150,9 +150,11 @@
               This.Data.Blocks.Affix := SVal
           }
         }
+        
           This.Data.Sections := ""
           This.Data.Delete("Sections")
-        This.MatchAffixes(This.Data.Blocks.Affix)
+        ;This.MatchAffixes(This.Data.Blocks.Affix)
+        This.MatchAffixesDanSpecial(This.Data.Blocks.Affix)
         This.MatchAffixes(This.Data.Blocks.Enchant)
         This.MatchAffixes(This.Data.Blocks.Implicit)
         This.MatchAffixes(This.Data.Blocks.Influence)
@@ -1177,6 +1179,73 @@
         }
         Return False
       }
+
+      MatchAffixesDanSpecial(content:=""){
+        ; These lines remove the extra line created by "additional information bubbles"
+        If (content ~= "\n\(")
+          content := RegExReplace(content, "\n\(", "(")
+        content := RegExReplace(content,"\(\w+ \w+ [\w\d\.% ,]+\)", "")
+        ; Do Stuff with info
+        LastLine := ""
+        DoubleModCounter := 0
+        SaveAffixMod := ""
+        Loop, Parse,% content, `r`n  ; , `r
+        {
+          If (A_LoopField = "" || A_LoopField ~= "^\{ .* \}$")
+          {
+            if(A_LoopField != ""){
+              RegExMatch(A_LoopField,"`am) ""(.+)""", RxMatch)
+              SaveAffixMod := RxMatch1
+            }
+            DoubleModCounter := 0
+            Continue
+          }
+          DoubleModCounter++
+          if(DoubleModCounter == 2){
+            If (vals := This.MatchLine(LastLine))
+            {
+              If (vals.Count() == 1)
+              {
+                If This.Affix[key]
+                {
+                  This.Affix[key] -= vals[1]
+                  This.Affix[SaveAffixMod] := 1
+                }
+                Else{
+                  This.Affix[SaveAffixMod] := 1
+                }
+              }
+            }
+            Continue
+          }
+          line :=  RegExReplace(A_LoopField, rxNum "\(" rxNum "-" rxNum "\)", "$1")
+          line :=  RegExReplace(line,  " . Unscalable Value" , "")
+          key := This.Standardize(line)
+          If (vals := This.MatchLine(line))
+          {
+            If (vals.Count() >= 2)
+            {
+              If (line ~= rxNum " to " rxNum || line ~= rxNum "-" rxNum)
+                This.Affix[key] := (Format("{1:0.3g}",(vals[1] + vals[2]) / 2))
+              Else
+                This.Affix[key] := vals[1]
+              For k, v in vals
+                This.Affix[ key "_value"k ] := v
+            }
+            Else If (vals.Count() == 1)
+            {
+              If This.Affix[key]
+                This.Affix[key] += vals[1]
+              Else
+                This.Affix[key] := vals[1]
+            }
+          }
+          Else
+            This.Affix[key] := True
+          LastLine := line
+        }
+      }
+
       MatchAffixes(content:=""){
         ; These lines remove the extra line created by "additional information bubbles"
         If (content ~= "\n\(")
