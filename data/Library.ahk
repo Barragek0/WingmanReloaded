@@ -113,6 +113,7 @@
         This.Pseudo := OrderedArray()
         This.Affix := OrderedArray()
         This.Prop := OrderedArray()
+        This.Modifier := OrderedArray()
         ; Split our sections from the clipboard
         ; NamePlate, Affix, FlavorText, Enchant, Implicit, Influence, Corrupted
         For SectionKey, SVal in This.Data.Sections
@@ -154,6 +155,7 @@
           This.Data.Sections := ""
           This.Data.Delete("Sections")
         ;This.MatchAffixes(This.Data.Blocks.Affix)
+        This.MatchModifiers(This.Data.Blocks.Affix)
         This.MatchAffixesDanSpecial(This.Data.Blocks.Affix)
         This.MatchAffixes(This.Data.Blocks.Enchant)
         This.MatchAffixes(This.Data.Blocks.Implicit)
@@ -1180,6 +1182,22 @@
         Return False
       }
 
+
+      MatchModifiers(content:=""){
+        ; These lines remove the extra line created by "additional information bubbles"
+        If (content ~= "\n\(")
+          content := RegExReplace(content, "\n\(", "(")
+        content := RegExReplace(content,"\(\w+ \w+ [\w\d\.% ,]+\)", "")
+        ; Do Stuff with info
+        Loop, Parse,% content, `r`n  ; , `r
+        {
+          If (A_LoopField ~= "^\{ .* \}$" && RegExMatch(A_LoopField,"`am) ""(.+)""", RxMatch))
+          {
+            This.Modifier[RxMatch1] := 1
+          }
+        }
+      }
+
       MatchAffixesDanSpecial(content:=""){
         ; These lines remove the extra line created by "additional information bubbles"
         If (content ~= "\n\(")
@@ -1191,12 +1209,9 @@
         SaveAffixMod := ""
         Loop, Parse,% content, `r`n  ; , `r
         {
-          If (A_LoopField = "" || A_LoopField ~= "^\{ .* \}$")
+          If (A_LoopField = "" || (A_LoopField ~= "^\{ .* \}$" && RegExMatch(A_LoopField,"`am) ""(.+)""", RxMatch)))
           {
-            if(A_LoopField != ""){
-              RegExMatch(A_LoopField,"`am) ""(.+)""", RxMatch)
-              SaveAffixMod := RxMatch1
-            }
+            SaveAffixMod := RxMatch1
             DoubleModCounter := 0
             Continue
           }
@@ -1768,7 +1783,7 @@
         Return False
       }
       DisplayPSA(){
-        propText:=statText:=affixText:=""
+        propText:=statText:=affixText:=modifierText:=""
         For key, value in This.Prop
         {
           If( RegExMatch(key, "^Required")
@@ -1804,6 +1819,16 @@
           }
         }
         GuiControl, ItemInfo:, ItemInfoAffixText, %affixText%
+
+        For key, value in This.Modifier
+        {
+          If (value != 0 && value != "" && value != False) {
+            If indexOf(key,this.MatchedCLF)
+              modifierText .= "CLF⭐"
+            modifierText .= key . ":  " . value . "`n"
+          }
+        }
+        GuiControl, ItemInfo:, ItemInfoModifierText, %modifierText%
       }
       GraphNinjaPrices(){
         If This.Data.HasKey("Ninja") || This.Data.HasKey("HelmNinja") || This.Data.HasKey("BaseNinja")
